@@ -230,12 +230,44 @@ jobs:
             echo "Skipping RPM signing: GPG_PRIVATE_KEY or GPG_KEY_NAME secret is not set."
           fi
 
+      # Like the .tar.gz, the AppImage bundles the binaries and relies on the
+      # system's GTK 4.12 / libadwaita 1.5 / WebKitGTK 6.0 / FUSE 3, so it runs
+      # on the same distributions as the .deb. Unlike the .tar.gz it carries
+      # its own desktop entry and icon, so it integrates into the menu.
+      - name: Package AppImage (.AppImage)
+        run: |
+          appdir=appdir
+          mkdir -p "$appdir/usr/bin" \
+            "$appdir/usr/share/applications" \
+            "$appdir/usr/share/icons/hicolor/scalable/apps" \
+            "$appdir/usr/share/licenses/proton-drive-linux"
+          cp target/release/pdfs target/release/pdfs-tray target/release/pdfs-app target/release/pdfs-prompt "$appdir/usr/bin/"
+          cp packaging/io.narl.proton-drive-linux.desktop "$appdir/usr/share/applications/"
+          cp packaging/io.narl.proton-drive-linux.svg "$appdir/usr/share/icons/hicolor/scalable/apps/"
+          cp LICENSE "$appdir/usr/share/licenses/proton-drive-linux/"
+          po/build.sh "$appdir/usr/share/locale"
+
+          # The AppImage root carries the entry point plus the desktop file and
+          # icon appimagetool embeds for desktop integration.
+          install -m755 packaging/appimage/AppRun "$appdir/AppRun"
+          cp packaging/io.narl.proton-drive-linux.desktop "$appdir/io.narl.proton-drive-linux.desktop"
+          cp packaging/io.narl.proton-drive-linux.svg "$appdir/io.narl.proton-drive-linux.svg"
+          desktop-file-validate "$appdir/io.narl.proton-drive-linux.desktop"
+
+          curl -fsSL -o appimagetool-x86_64.AppImage \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          # --appimage-extract-and-run: the runner has no FUSE to mount the tool itself.
+          ARCH=x86_64 VERSION="${{ env.VERSION }}" \
+            ./appimagetool-x86_64.AppImage --appimage-extract-and-run \
+            "$appdir" "proton-drive-linux-${{ env.VERSION }}-x86_64.AppImage"
 
       - name: Upload Workflow Artifacts
         uses: actions/upload-artifact@v7
         with:
           name: proton-drive-linux-builds
           path: |
+            *.AppImage
             *.deb
             *.tar.gz
             *.tar.xz
@@ -304,6 +336,7 @@ jobs:
         with:
           body_path: release-notes.md
           files: |
+            *.AppImage
             *.deb
             *.tar.gz
             *.tar.xz

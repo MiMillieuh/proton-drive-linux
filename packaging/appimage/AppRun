@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APPDIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd -P)"
+
+export PATH="$APPDIR/usr/bin:$PATH"
+export XDG_DATA_DIRS="$APPDIR/usr/share${XDG_DATA_DIRS:+:$XDG_DATA_DIRS}"
+export PDFS_LOCALEDIR="$APPDIR/usr/share/locale"
+
+case "${1:-}" in
+  pdfs|pdfs-tray|pdfs-app|pdfs-prompt)
+    exec "$APPDIR/usr/bin/$1" "${@:2}"
+    ;;
+  *)
+    exec "$APPDIR/usr/bin/pdfs-app" "$@"
+    ;;
+esac
